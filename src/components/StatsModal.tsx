@@ -9,7 +9,7 @@ interface StatsModalProps {
   targetWord: string;
   onClose: () => void;
   onShare: () => void;
-  onPlayAgainPractice: () => void;
+  onPlayAgain: () => void;
 }
 
 export function StatsModal({
@@ -21,7 +21,7 @@ export function StatsModal({
   targetWord,
   onClose,
   onShare,
-  onPlayAgainPractice,
+  onPlayAgain,
 }: StatsModalProps) {
   if (!isOpen) return null;
 
@@ -111,25 +111,23 @@ export function StatsModal({
             <div className="stats-actions">
               <button
                 type="button"
+                className="action-btn play-again-btn"
+                onClick={() => {
+                  onPlayAgain();
+                  onClose();
+                }}
+                data-testid="modal-play-again-btn"
+              >
+                Play Again
+              </button>
+              <button
+                type="button"
                 className="action-btn share-btn"
                 onClick={onShare}
                 data-testid="share-result-btn"
               >
                 Share Result
               </button>
-              {mode === 'PRACTICE' && (
-                <button
-                  type="button"
-                  className="action-btn play-again-btn"
-                  onClick={() => {
-                    onPlayAgainPractice();
-                    onClose();
-                  }}
-                  data-testid="modal-play-again-btn"
-                >
-                  Play Again
-                </button>
-              )}
             </div>
           </div>
         )}

@@ -259,6 +259,31 @@ describe('Deterministic Daily Word Indexing & Midnight Rollover', () => {
     expect(rolledState.stats.currentStreak).toBe(1);
     expect(rolledState.settings.hardMode).toBe(true);
   });
+
+  it('updates stats and streaks accurately across multiple continuous games on the same day', () => {
+    const state = createDefaultState(new Date(2026, 0, 10));
+    // Game 1: Win in 3 guesses
+    let stats = recordDailyGameResult(state.stats, true, 3, '2026-01-10');
+    expect(stats.gamesPlayed).toBe(1);
+    expect(stats.gamesWon).toBe(1);
+    expect(stats.currentStreak).toBe(1);
+    expect(stats.maxStreak).toBe(1);
+
+    // Game 2 (same day): Win in 4 guesses
+    stats = recordDailyGameResult(stats, true, 4, '2026-01-10');
+    expect(stats.gamesPlayed).toBe(2);
+    expect(stats.gamesWon).toBe(2);
+    expect(stats.currentStreak).toBe(2);
+    expect(stats.maxStreak).toBe(2);
+    expect(stats.distribution).toEqual([0, 0, 1, 1, 0, 0]);
+
+    // Game 3 (same day): Loss after 6 guesses
+    stats = recordDailyGameResult(stats, false, 6, '2026-01-10');
+    expect(stats.gamesPlayed).toBe(3);
+    expect(stats.gamesWon).toBe(2);
+    expect(stats.currentStreak).toBe(0);
+    expect(stats.maxStreak).toBe(2);
+  });
 });
 
 describe('Security, Input Sanitization & LocalStorage Anti-Corruption', () => {

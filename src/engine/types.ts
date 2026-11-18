@@ -31,6 +31,7 @@ export interface DailyBoardState {
   dayIndex: number;
   guesses: string[];
   status: GameStatus;
+  targetWord?: string;
 }
 
 export interface PracticeBoardState {

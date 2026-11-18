@@ -224,4 +224,69 @@ describe('End-to-End Interactive UI & Production PWA Build QA', () => {
     });
     expect(container.querySelector('[data-testid="stats-modal"]')).not.toBeNull();
   });
+
+  it('allows continuing to play immediately after winning OR losing a game in Daily Mode', () => {
+    mountApp();
+
+    const todayWord = getDailyWordForDate(formatLocalDateKey(new Date())).word;
+
+    // 1. Win the game by guessing todayWord
+    typeWordOnVirtualKeyboard(todayWord);
+    clickKey('ENTER');
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    const gameOverBarWin = container.querySelector('[data-testid="game-over-bar"]');
+    expect(gameOverBarWin).not.toBeNull();
+    expect(gameOverBarWin?.textContent).toContain('Solved in 1/6!');
+
+    const playAgainWinBtn = container.querySelector(
+      '[data-testid="play-again-btn"]'
+    ) as HTMLButtonElement | null;
+    expect(playAgainWinBtn).not.toBeNull();
+
+    // Click Play Again in Daily Mode to continue playing
+    act(() => {
+      playAgainWinBtn!.click();
+    });
+
+    // Board should reset to clean IN_PROGRESS state
+    expect(container.querySelector('[data-testid="game-over-bar"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tile-0-0"]')?.textContent).toBe('');
+
+    // 2. Lose the next game by submitting 6 valid wrong guesses
+    const savedState = JSON.parse(window.localStorage.getItem(STORAGE_KEY)!);
+    const nextTargetWord: string = savedState.daily.targetWord;
+    expect(nextTargetWord).toBeTruthy();
+
+    const wrongCandidates = ['CRANE', 'SLATE', 'AUDIO', 'FLOOR', 'KEBAB', 'ERASE', 'ROBOT'].filter(
+      (w) => w !== nextTargetWord
+    );
+
+    for (let i = 0; i < 6; i++) {
+      typeWordOnVirtualKeyboard(wrongCandidates[i]);
+      clickKey('ENTER');
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+    }
+
+    const gameOverBarLoss = container.querySelector('[data-testid="game-over-bar"]');
+    expect(gameOverBarLoss).not.toBeNull();
+    expect(gameOverBarLoss?.textContent).toContain(`Word: ${nextTargetWord}`);
+
+    const playAgainLossBtn = container.querySelector(
+      '[data-testid="play-again-btn"]'
+    ) as HTMLButtonElement | null;
+    expect(playAgainLossBtn).not.toBeNull();
+
+    // Click Play Again after loss to continue playing another word
+    act(() => {
+      playAgainLossBtn!.click();
+    });
+
+    expect(container.querySelector('[data-testid="game-over-bar"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tile-0-0"]')?.textContent).toBe('');
+  });
 });

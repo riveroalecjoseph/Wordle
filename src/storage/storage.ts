@@ -100,15 +100,29 @@ function validateSettings(val: unknown): val is AppSettings {
 
 function validateDailyBoard(val: unknown): val is DailyBoardState {
   if (!isPlainObject(val)) return false;
-  if (!hasExactKeys(val, ['dateKey', 'dayIndex', 'guesses', 'status'])) return false;
+  const hasBaseKeys = hasExactKeys(val, ['dateKey', 'dayIndex', 'guesses', 'status']);
+  const hasExtendedKeys = hasExactKeys(val, [
+    'dateKey',
+    'dayIndex',
+    'guesses',
+    'status',
+    'targetWord',
+  ]);
+  if (!hasBaseKeys && !hasExtendedKeys) return false;
   if (!isValidDateKey(val.dateKey)) return false;
   if (typeof val.dayIndex !== 'number' || !Number.isInteger(val.dayIndex)) return false;
   const expectedDayIndex = getDaysSinceAnchor(val.dateKey);
   if (val.dayIndex !== expectedDayIndex) return false;
   if (!isValidGuessesArray(val.guesses)) return false;
   if (!isValidStatus(val.status)) return false;
-  const { word } = getDailyWordForDate(val.dateKey);
-  return isConsistentBoardStatus(val.guesses, val.status, word);
+  let targetWord = getDailyWordForDate(val.dateKey).word;
+  if (hasExtendedKeys) {
+    if (!isValidFiveLetterWord(val.targetWord) || !isAllowedGuess(val.targetWord)) {
+      return false;
+    }
+    targetWord = val.targetWord;
+  }
+  return isConsistentBoardStatus(val.guesses, val.status, targetWord);
 }
 
 function validatePracticeBoard(val: unknown): val is PracticeBoardState {
@@ -287,7 +301,7 @@ export function saveAppState(state: PersistedAppState): boolean {
 }
 
 /**
- * Updates lifetime Daily Mode statistics upon game completion.
+ * Updates lifetime statistics upon game completion (supports continuous play on the same day).
  */
 export function recordDailyGameResult(
   prevStats: LifetimeStats,
@@ -295,22 +309,19 @@ export function recordDailyGameResult(
   guessCount: number,
   completedDateKey: string
 ): LifetimeStats {
-  // Prevent double-counting the same daily game
-  if (prevStats.lastCompletedDate === completedDateKey) {
-    return prevStats;
-  }
-
   const gamesPlayed = prevStats.gamesPlayed + 1;
   const gamesWon = won ? prevStats.gamesWon + 1 : prevStats.gamesWon;
 
-  let isConsecutiveDay = false;
+  let canContinueStreak = false;
   if (prevStats.lastCompletedDate !== null) {
     const prevIdx = getDaysSinceAnchor(prevStats.lastCompletedDate);
     const currIdx = getDaysSinceAnchor(completedDateKey);
-    isConsecutiveDay = currIdx - prevIdx === 1;
+    const dayDiff = currIdx - prevIdx;
+    // Continues streak if played on the same day (0) or consecutive next day (1)
+    canContinueStreak = dayDiff === 0 || dayDiff === 1;
   }
 
-  const currentStreak = won ? (isConsecutiveDay ? prevStats.currentStreak + 1 : 1) : 0;
+  const currentStreak = won ? (canContinueStreak ? prevStats.currentStreak + 1 : 1) : 0;
   const maxStreak = Math.max(prevStats.maxStreak, currentStreak);
 
   const distribution: GuessDistribution = [...prevStats.distribution] as GuessDistribution;

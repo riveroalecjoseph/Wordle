@@ -107,8 +107,8 @@ export function App() {
   }, []);
 
   const dailyTargetWord = useMemo(
-    () => getDailyWordForDate(appState.daily.dateKey).word,
-    [appState.daily.dateKey]
+    () => appState.daily.targetWord ?? getDailyWordForDate(appState.daily.dateKey).word,
+    [appState.daily.dateKey, appState.daily.targetWord]
   );
 
   const activeBoard = mode === 'DAILY' ? appState.daily : appState.practice;
@@ -126,20 +126,40 @@ export function App() {
     setShakeRow(false);
   }, []);
 
-  const handlePlayAgainPractice = useCallback(() => {
+  const handlePlayAgain = useCallback(() => {
     if (isSubmittingRef.current) return;
-    setAppState((prev) => ({
-      ...prev,
-      practice: {
-        targetWord: getRandomPracticeWord(prev.practice.targetWord),
-        guesses: [],
-        status: 'IN_PROGRESS',
-      },
-    }));
-    setCurrentInput('');
-    setShakeRow(false);
-    showToast('New practice word ready');
-  }, [showToast]);
+    if (mode === 'DAILY') {
+      setAppState((prev) => {
+        const currentDailyWord =
+          prev.daily.targetWord ?? getDailyWordForDate(prev.daily.dateKey).word;
+        return {
+          ...prev,
+          daily: {
+            dateKey: prev.daily.dateKey,
+            dayIndex: prev.daily.dayIndex,
+            targetWord: getRandomPracticeWord(currentDailyWord),
+            guesses: [],
+            status: 'IN_PROGRESS',
+          },
+        };
+      });
+      setCurrentInput('');
+      setShakeRow(false);
+      showToast('New word ready');
+    } else {
+      setAppState((prev) => ({
+        ...prev,
+        practice: {
+          targetWord: getRandomPracticeWord(prev.practice.targetWord),
+          guesses: [],
+          status: 'IN_PROGRESS',
+        },
+      }));
+      setCurrentInput('');
+      setShakeRow(false);
+      showToast('New practice word ready');
+    }
+  }, [mode, showToast]);
 
   const submitCurrentGuess = useCallback(() => {
     if (isSubmittingRef.current || activeBoard.status !== 'IN_PROGRESS') {
@@ -240,7 +260,14 @@ export function App() {
 
   const handleKeyInput = useCallback(
     (rawKey: string) => {
-      if (isSubmittingRef.current || activeBoard.status !== 'IN_PROGRESS') {
+      if (isSubmittingRef.current) {
+        return;
+      }
+
+      if (activeBoard.status !== 'IN_PROGRESS') {
+        if (rawKey === 'ENTER') {
+          handlePlayAgain();
+        }
         return;
       }
 
@@ -259,7 +286,7 @@ export function App() {
         setCurrentInput((prev) => (prev.length < 5 ? prev + cleanLetter : prev));
       }
     },
-    [activeBoard.status, submitCurrentGuess]
+    [activeBoard.status, handlePlayAgain, submitCurrentGuess]
   );
 
   // Physical keyboard listener
@@ -418,22 +445,20 @@ export function App() {
             <div className="game-over-actions">
               <button
                 type="button"
+                className="inline-action-btn play-again"
+                onClick={handlePlayAgain}
+                data-testid="play-again-btn"
+              >
+                Play Again
+              </button>
+              <button
+                type="button"
                 className="inline-action-btn share"
                 onClick={handleShareResult}
                 data-testid="inline-share-btn"
               >
                 Share Result
               </button>
-              {mode === 'PRACTICE' && (
-                <button
-                  type="button"
-                  className="inline-action-btn play-again"
-                  onClick={handlePlayAgainPractice}
-                  data-testid="play-again-btn"
-                >
-                  Play Again
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -465,7 +490,7 @@ export function App() {
         targetWord={activeTargetWord}
         onClose={() => setIsStatsOpen(false)}
         onShare={handleShareResult}
-        onPlayAgainPractice={handlePlayAgainPractice}
+        onPlayAgain={handlePlayAgain}
       />
     </div>
   );
